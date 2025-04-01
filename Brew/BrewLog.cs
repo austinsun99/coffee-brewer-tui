@@ -5,7 +5,8 @@ public class BrewLog
 	private HashSet<Topic> topics;
 	private List<BrewEntry> entries;
 	public List<BrewEntry> Entries { get => entries; }
-	public List<BrewEntry> SortedEntries {
+	public List<BrewEntry> SortedEntries
+	{
 		get => entries.OrderBy(e => e.startTime).ToList();
 	}
 
@@ -13,13 +14,12 @@ public class BrewLog
 	private int GetTimeForTopicsInHours(Topic[] topics) => GetTimeForTopicsInSeconds(topics) / 3600;
 	public string GetTimeForTopicsFormatted(Topic[] topics) =>
 		$"{GetTimeForTopicsInHours(topics)} hours {GetTimeForTopicsInMinutes(topics)} minutes";
-	public string GetTimeForAllEntriesFormatted() {
+	public string GetTimeForAllEntriesFormatted()
+	{
 		int seconds = 0;
 		foreach (BrewEntry entry in entries)
-		{
 			seconds += entry.lengthSeconds;
-		}
-		return $"{seconds / 3600} hours, {seconds / 60} seconds";
+		return $"{seconds / 3600} hours, {seconds % 60} minutes";
 	}
 
 	public HashSet<Topic> Topics { get => topics; }
@@ -42,10 +42,13 @@ public class BrewLog
 		return seconds;
 	}
 
-	public Topic[] GetTopicsFromNames(List<string> names) {
+	public Topic[] GetTopicsFromNames(List<string> names)
+	{
 		List<Topic> topicsWithName = new List<Topic>();
-		foreach (Topic t in topics) {
-			if (names.Contains(t.name)) {
+		foreach (Topic t in topics)
+		{
+			if (names.Contains(t.name))
+			{
 				topicsWithName.Add(t);
 			}
 		}
@@ -160,8 +163,8 @@ public struct BrewEntry
 	public string GetLengthFormatted()
 	{
 		int seconds = lengthSeconds;
-		int minutes = seconds / 60;
 		int hours = seconds / 3600;
+		int minutes = (seconds % 3600) / 60;
 		return hours != 0 ? $"{hours} hours, {minutes} minutes" : $"{minutes} minutes";
 	}
 

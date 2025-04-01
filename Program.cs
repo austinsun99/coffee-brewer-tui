@@ -10,6 +10,7 @@ class Program
 
 	static BrewLog brewLog = new BrewLog();
 	static bool applicationIsOpen;
+	public static MainPanel mainPanel = new MainPanel();
 
 	static void Main(string[] args)
 	{
@@ -22,34 +23,13 @@ class Program
 		Topic piano = new Topic("Piano");
 		Topic cs = new Topic("Computer Science");
 
-		BrewEntry csProject = new BrewEntry("CS Project", DateTime.Now, 20, new Topic[] { cs, studying });
+		BrewEntry csProject = new BrewEntry("CS Project", DateTime.Now, 2400, new Topic[] { cs, studying });
 
-		brewLog.AddEntry(new BrewEntry("Integral Calculus", DateTime.Now, 20, new Topic[] { math, studying }));
-		brewLog.AddEntry(new BrewEntry("Rust lifetimes", DateTime.Now, 30, new Topic[] { rust, studying }));
-		brewLog.AddEntry(new BrewEntry("Piano", DateTime.Now, 50, new Topic[] { piano }));
+		brewLog.AddEntry(new BrewEntry("Integral Calculus", DateTime.Now, 2400, new Topic[] { math, studying }));
+		brewLog.AddEntry(new BrewEntry("Rust lifetimes", DateTime.Now, 4800, new Topic[] { rust, studying }));
+		brewLog.AddEntry(new BrewEntry("Piano", DateTime.Now, 3400, new Topic[] { piano }));
 		brewLog.AddEntry(csProject);
 
-
-		MainPanel mainPanel = new MainPanel();
-		mainPanel.DrawTimerFrame(brewLog, csProject);
-
-		if (args == null || args.Length == 0) ;// mainPanel.DrawFrame(brewLog);
-		else
-			switch (args[0])
-			{
-				case "add":
-					BrewEntry entry = PromptEntry();
-					mainPanel.DrawTimerFrame(brewLog, entry);
-					break;
-			}
-		Console.ReadKey();
-
+		mainPanel.DrawFrame(brewLog);
 	}
-
-	static BrewEntry PromptEntry()
-	{
-		BrewEntry entry = Prompts.PromptBrewEntry(brewLog);
-		return entry;
-	}
-
 }
