@@ -7,29 +7,17 @@ namespace CoffeeBrewer;
 
 class Program
 {
-
-	static BrewLog brewLog = new BrewLog();
-	static bool applicationIsOpen;
-	public static MainPanel mainPanel = new MainPanel();
-
 	static void Main(string[] args)
 	{
-
 		AnsiConsole.Clear();
-
-		Topic math = new Topic("Math");
-		Topic studying = new Topic("Studying");
-		Topic rust = new Topic("Rust");
-		Topic piano = new Topic("Piano");
-		Topic cs = new Topic("Computer Science");
-
-		BrewEntry csProject = new BrewEntry("CS Project", DateTime.Now, 2400, new Topic[] { cs, studying });
-
-		brewLog.AddEntry(new BrewEntry("Integral Calculus", DateTime.Now, 2400, new Topic[] { math, studying }));
-		brewLog.AddEntry(new BrewEntry("Rust lifetimes", DateTime.Now, 4800, new Topic[] { rust, studying }));
-		brewLog.AddEntry(new BrewEntry("Piano", DateTime.Now, 3400, new Topic[] { piano }));
-		brewLog.AddEntry(csProject);
-
-		mainPanel.DrawFrame(brewLog);
+		//BrewLog brewLog = SaveLoad.LoadBrewLog();
+		BrewLog brewLog = new BrewLog();
+		brewLog.AddEntry(new BrewEntry("Now", DateTime.Now, 30, new Topic[0]));
+		brewLog.AddEntry(new BrewEntry("Today", DateTime.Now.Date, 30, new Topic[0]));
+		brewLog.AddEntry(new BrewEntry("Yesterday", DateTime.Now.AddDays(-1), 30, new Topic[0]));
+		brewLog.AddEntry(new BrewEntry("Last Week", DateTime.Now.AddDays(-7.01), 30, new Topic[0]));
+		brewLog.AddEntry(new BrewEntry("Last Month", DateTime.Now.AddMonths(-1), 30, new Topic[0]));
+		brewLog.AddEntry(new BrewEntry("Last Year", DateTime.Now.AddYears(-1), 30, new Topic[0]));
+		MainPanel.DrawFrame(brewLog);
 	}
 }

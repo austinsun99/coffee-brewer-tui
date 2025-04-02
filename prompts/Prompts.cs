@@ -1,5 +1,5 @@
 using Spectre.Console;
-using CoffeeBrewer;
+using UI;
 
 namespace Brew;
 
@@ -46,7 +46,7 @@ public static class Prompts
 		AnsiConsole.MarkupLineInterpolated($"You've selected the following tags: [blue]{string.Join(" ", topics)}[/]");
 
 		int length = AnsiConsole.Prompt(new TextPrompt<int>("How long would you like to do this activity (in minutes):"));// * 60;
-		Program.mainPanel.DrawTimerFrame(brewLog, new BrewEntry(entryName, DateTime.Now, length, brewLog.GetTopicsFromNames(topics)));
+		MainPanel.DrawTimerFrame(brewLog, new BrewEntry(entryName, DateTime.Now, length, brewLog.GetTopicsFromNames(topics)));
 	}
 
 	public static Topic[] PromptAddTopics()

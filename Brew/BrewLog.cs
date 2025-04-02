@@ -1,10 +1,15 @@
+using System.Text.Json.Serialization;
 namespace Brew;
 
 public class BrewLog
 {
 	private HashSet<Topic> topics;
+	public HashSet<Topic> Topics { get => topics; set => topics = value; }
+
 	private List<BrewEntry> entries;
-	public List<BrewEntry> Entries { get => entries; }
+	public List<BrewEntry> Entries { get => entries; set => entries = value; }
+
+	[JsonIgnore]
 	public List<BrewEntry> SortedEntries
 	{
 		get => entries.OrderBy(e => e.startTime).ToList();
@@ -19,10 +24,8 @@ public class BrewLog
 		int seconds = 0;
 		foreach (BrewEntry entry in entries)
 			seconds += entry.lengthSeconds;
-		return $"{seconds / 3600} hours, {seconds % 60} minutes";
+		return $"{seconds / 3600} hours, {(seconds % 3600) / 60} minutes";
 	}
-
-	public HashSet<Topic> Topics { get => topics; }
 
 	public BrewLog()
 	{
@@ -53,6 +56,66 @@ public class BrewLog
 			}
 		}
 		return topicsWithName.ToArray();
+	}
+
+	public string GetEntriesWithTopicAndDateRangeFormatted(Topic[] topics, TimeInterval timeInterval)
+	{
+		var entriesWithGivenTopic = EntriesWithTopic(topics);
+		var entriesWithTopicAndWithinDate = new List<BrewEntry>();
+
+		foreach (BrewEntry entry in entriesWithGivenTopic)
+		{
+			var cal = System.Globalization.DateTimeFormatInfo.CurrentInfo.Calendar;
+			var d1 = DateTime.Now.Date.AddDays(-1 * (int)cal.GetDayOfWeek(DateTime.Now));
+			var d2 = entry.endTime.Date.AddDays(-1 * (int)cal.GetDayOfWeek(entry.endTime));
+			bool entryEndTimeSameWeek = d1 == d2;
+
+			bool withinTimeRange = timeInterval switch
+			{
+				TimeInterval.Day => DateTime.Today == entry.endTime.Date,
+				TimeInterval.Week => entryEndTimeSameWeek,
+				TimeInterval.Month => DateTime.Now.Year == entry.endTime.Year
+					&& DateTime.Now.Month == entry.endTime.Month,
+				TimeInterval.Year => DateTime.Now.Year == entry.endTime.Year, 
+				TimeInterval.All => true,
+				_ => false,
+			};
+
+			if (withinTimeRange) entriesWithTopicAndWithinDate.Add(entry);
+
+		}
+
+		int totalSeconds = 0;
+		foreach (var entry in entriesWithGivenTopic) {
+			totalSeconds += entry.lengthSeconds;
+		}
+
+		string totalSecondsFormatted;
+		if (totalSeconds < 60) totalSecondsFormatted = $"{totalSeconds} seconds";
+		else if (totalSeconds < 3600) totalSecondsFormatted = $"{totalSeconds / 60} minutes, {totalSeconds % 60} seconds";
+		else totalSecondsFormatted = $"{totalSeconds / 3600} hours, {(totalSeconds / 3600) % 60} minutes";
+
+		var displayBuilder = new System.Text.StringBuilder();
+		displayBuilder.Append($"You have spent {totalSecondsFormatted} working ");
+
+		bool topicIsEmpty = topics == null || topics.Length == 0;
+		if (!topicIsEmpty) {
+			string topicsDisplay = string.Join(" ", topics.Select(e => e.name));
+			displayBuilder.Append($"on: [blue]{topicsDisplay}[/] ");
+		}
+
+		string suffix = timeInterval switch {
+			TimeInterval.Day => "today",
+			TimeInterval.Week => "this week",
+			TimeInterval.Month => $"in {DateTime.Now.ToString("MMMM")}",
+			TimeInterval.Year => $"in {DateTime.Now.ToString("yyyy")}",
+			TimeInterval.All => "in total",
+			_ => ""
+		};
+
+		displayBuilder.Append(suffix);
+		return displayBuilder.ToString();
+
 	}
 
 	public void AddEntry(BrewEntry entry)
@@ -95,6 +158,7 @@ public class BrewLog
 					DateTime.Now.AddDays(-(int)DateTime.Now.DayOfWeek) == startTimeOfEntry.AddDays(-(int)startTimeOfEntry.DayOfWeek),
 				TimeInterval.Month => startTimeOfEntry.Month == DateTime.Now.Month,
 				TimeInterval.Year => startTimeOfEntry.Year == DateTime.Now.Year,
+				TimeInterval.All => true,
 				_ => throw new Exception("Time Interval is null"),
 			};
 
@@ -106,11 +170,6 @@ public class BrewLog
 
 	}
 
-	private bool EntryFitsTimeInterval()
-	{
-		return false;
-	}
-
 }
 
 public enum TimeInterval
@@ -119,12 +178,13 @@ public enum TimeInterval
 	Week,
 	Month,
 	Year,
+	All,
 }
 
 public struct Topic
 {
 
-	public string name;
+	[JsonInclude] public string name;
 
 	public Topic(string _name)
 	{
@@ -147,10 +207,12 @@ public struct Topic
 
 public struct BrewEntry
 {
-	public string name;
-	public DateTime startTime;
-	public int lengthSeconds;
-	public Topic[] topics;
+	[JsonInclude] public string name;
+	[JsonInclude] public DateTime startTime;
+	[JsonInclude] public int lengthSeconds;
+	[JsonInclude] public Topic[] topics;
+
+	public DateTime endTime { get => startTime.AddSeconds(lengthSeconds); }
 
 	public BrewEntry(string _name, DateTime _startTime, int _lengthSeconds, Topic[] _topic)
 	{

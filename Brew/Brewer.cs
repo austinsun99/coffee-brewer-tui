@@ -35,7 +35,6 @@ public class Brewer
 		{
 			brewing = false;
 			brewLog.Entries.Add(brewEntry);
-			Console.WriteLine($"Finished brewing: {brewEntry.ToString()}");
 			OnBrewFinish();
 		};
 

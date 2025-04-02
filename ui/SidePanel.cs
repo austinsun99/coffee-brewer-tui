@@ -5,14 +5,15 @@ using CoffeeBrewer;
 
 namespace UI;
 
-public class SidePanel
+public static class SidePanel
 {
 
-	public Layout GetSidePanel(BrewLog brewLog, int selectedIndex)
+	public static Layout GetSidePanel(BrewLog brewLog, int selectedIndex, TimeInterval interval)
 	{
 		Layout sidePanel = new Layout("Root");
 
-		string timeDisplay = $"You spent [red]{brewLog.GetTimeForAllEntriesFormatted()}[/] working today!";
+		string timeDisplay = 
+			brewLog.GetEntriesWithTopicAndDateRangeFormatted(brewLog.Topics.ToArray(), interval);
 		Panel topDisplayPanel = new Panel(timeDisplay);
 
 		Table logTable = new Table();
@@ -33,8 +34,10 @@ public class SidePanel
 
 	}
 
-	private Panel StudyLogPanel(BrewEntry entry, bool selected = false)
+	private static Panel StudyLogPanel(BrewEntry entry, bool selected = false)
 	{
+
+		//TODO: Fix header being cut off
 		string topics = string.Join(" ", entry.topics.Select(t => $"[[{t.name}]]"));
 		StringBuilder panelInfo = new StringBuilder()
 			.AppendLine($"[blue]{topics}[/]")
@@ -50,18 +53,21 @@ public class SidePanel
 
 }
 
-public class MainPanel()
+public static class MainPanel
 {
-
-	public void DrawFrame(BrewLog brewLog)
+	static TimeInterval interval;
+	public static void DrawFrame(BrewLog brewLog)
 	{
+		Console.CancelKeyPress += new ConsoleCancelEventHandler((
+            object? sender,
+            ConsoleCancelEventArgs args) => Save(brewLog));
 
 		Layout mainLayout = GenerateBaseMainLayout(brewLog);
 		AnsiConsole.Live(mainLayout).Start(ctx =>
 		{
 			bool listenToKeypresses = true;
 			int selectedIndex = 0;
-			mainLayout["Side"].Update(new SidePanel().GetSidePanel(brewLog, selectedIndex));
+			mainLayout["Side"].Update(SidePanel.GetSidePanel(brewLog, selectedIndex, interval));
 			ctx.Refresh();
 			while (listenToKeypresses)
 			{
@@ -77,16 +83,25 @@ public class MainPanel()
 						if (selectedIndex < 0) selectedIndex = brewLog.Entries.Count() - 1;
 						break;
 					case ConsoleKey.E:
-						Environment.Exit(0);
+						Save(brewLog);
 						break;
 					case ConsoleKey.A:
 						listenToKeypresses = false;
+						break;
+					case ConsoleKey.X:
+						if (brewLog.Entries.Count() == 0) break;
+						brewLog.Entries.Remove(brewLog.SortedEntries[selectedIndex]);
+						if (selectedIndex >= brewLog.SortedEntries.Count()) selectedIndex--;
+						break;
+					case ConsoleKey.F:
+						interval++;
+						if ((int)interval >= Enum.GetNames(typeof(TimeInterval)).Length) interval = 0;
 						break;
 					default:
 						AnsiConsole.Clear();
 						break;
 				}
-				mainLayout["Side"].Update(new SidePanel().GetSidePanel(brewLog, selectedIndex));
+				mainLayout["Side"].Update(SidePanel.GetSidePanel(brewLog, selectedIndex, interval));
 				ctx.Refresh();
 			}
 		});
@@ -95,9 +110,14 @@ public class MainPanel()
 
 	}
 
-	public void DrawTimerFrame(BrewLog brewLog, BrewEntry entryToDisplay)
+	public static void DrawTimerFrame(BrewLog brewLog, BrewEntry entryToDisplay)
 	{
 
+		Console.CancelKeyPress += new ConsoleCancelEventHandler((
+            object? sender,
+            ConsoleCancelEventArgs args) => Save(brewLog));
+
+		const int TIME_BETWEEN_REFRESH_MS = 1000;
 		Layout mainLayout = GenerateBaseMainLayout(brewLog);
 
 		Panel coffeeInfo = GetCoffeeInformationDisplay(entryToDisplay, entryToDisplay.lengthSeconds);
@@ -125,7 +145,6 @@ public class MainPanel()
 				Func<int> GetTimeLeft = ()
 					=> secondsUntilActivityFinishes - (int)activityTimeStopwatch.Elapsed.TotalSeconds;
 
-
 				Task t = Task.Factory.StartNew(() =>
 				{
 					while (secondsUntilActivityFinishes > 0)
@@ -149,8 +168,6 @@ public class MainPanel()
 
 				//TODO: better formatting
 
-				const int TIME_BETWEEN_REFRESH_MS = 1000;
-
 				while (activityTimeStopwatch.Elapsed.TotalSeconds < secondsUntilActivityFinishes)
 				{
 					coffeeInfo = GetCoffeeInformationDisplay(entryToDisplay, GetTimeLeft());
@@ -165,12 +182,13 @@ public class MainPanel()
 				TimeSpan activityTotalTime = activityTimeStopwatch.Elapsed;
 
 				entryToDisplay.lengthSeconds = (int)activityTotalTime.TotalSeconds;
-				brewLog.AddEntry(entryToDisplay);
 			});
-		Program.mainPanel.DrawFrame(brewLog);
+
+		brewLog.AddEntry(entryToDisplay);
+		DrawFrame(brewLog);
 	}
 
-	private Panel GetCoffeeInformationDisplay(BrewEntry entryToDisplay, int timeLeft)
+	private static Panel GetCoffeeInformationDisplay(BrewEntry entryToDisplay, int timeLeft)
 	{
 		string topicsFormatted = string.Join(" ", entryToDisplay.topics.Select(t => $"[[{t.name}]]"));
 		var panelText =
@@ -186,7 +204,7 @@ public class MainPanel()
 		return coffeeInfo;
 	}
 
-	private Panel GetKeybindingsInformationDisplay()
+	private static Panel GetKeybindingsInformationDisplay()
 	{
 		var panelText =
 			new StringBuilder()
@@ -195,7 +213,7 @@ public class MainPanel()
 		return new Panel(panelText.ToString());
 	}
 
-	private Layout GenerateBaseMainLayout(BrewLog brewLog)
+	private static Layout GenerateBaseMainLayout(BrewLog brewLog)
 	{
 
 		Layout mainLayout = new Layout("Root");
@@ -213,13 +231,19 @@ public class MainPanel()
 		mainLayout["Top"].Ratio(2);
 		mainLayout["Image"].Ratio(5);
 
-		mainLayout["Side"].Update(new SidePanel().GetSidePanel(brewLog, -1));
+		mainLayout["Side"].Update(SidePanel.GetSidePanel(brewLog, -1, interval));
 
 		//Canvas coffeeDrawing = new Canvas(32, 32);
 		//DrawCoffee(coffeeDrawing, ((mainLayout.Size ?? 0 / 2), 0));
 		//mainLayout["Image"].Update(Align.Center(coffeeDrawing));
 
 		return mainLayout;
+	}
+
+	private static void Save(BrewLog brewLog)
+	{
+		SaveLoad.SaveBrewLog(brewLog);
+		Environment.Exit(0);
 	}
 
 	static void DrawCoffee(Canvas canvas, (int, int) padding)
