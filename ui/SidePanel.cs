@@ -12,7 +12,7 @@ public static class SidePanel
 	{
 		Layout sidePanel = new Layout("Root");
 
-		string timeDisplay = 
+		string timeDisplay =
 			brewLog.GetEntriesWithTopicAndDateRangeFormatted(brewLog.Topics.ToArray(), interval);
 		Panel topDisplayPanel = new Panel(timeDisplay);
 
@@ -24,9 +24,10 @@ public static class SidePanel
 		logTable.AddRow(topDisplayPanel);
 		logTable.AddEmptyRow();
 
-		for (int i = 0; i < brewLog.SortedEntries.Count(); i++)
+		var filteredEntries = brewLog.GetEntriesWithTopicAndDateInterval(brewLog.Topics.ToArray(), interval);
+		for (int i = 0; i < filteredEntries.Count(); i++)
 		{
-			logTable.AddRow((StudyLogPanel(brewLog.SortedEntries[i], i == selectedIndex)));
+			logTable.AddRow((StudyLogPanel(filteredEntries[i], i == selectedIndex)));
 		}
 
 		sidePanel["Root"].Update(new Align(logTable, HorizontalAlignment.Center));
@@ -59,8 +60,8 @@ public static class MainPanel
 	public static void DrawFrame(BrewLog brewLog)
 	{
 		Console.CancelKeyPress += new ConsoleCancelEventHandler((
-            object? sender,
-            ConsoleCancelEventArgs args) => Save(brewLog));
+			object? sender,
+			ConsoleCancelEventArgs args) => Save(brewLog));
 
 		Layout mainLayout = GenerateBaseMainLayout(brewLog);
 		AnsiConsole.Live(mainLayout).Start(ctx =>
@@ -76,7 +77,8 @@ public static class MainPanel
 				{
 					case ConsoleKey.J:
 						selectedIndex++;
-						if (selectedIndex >= brewLog.Entries.Count()) selectedIndex = 0;
+						int v = brewLog.GetEntriesWithTopicAndDateInterval(brewLog.Topics.ToArray(), interval).Count();
+						if (selectedIndex >= v) selectedIndex = 0;
 						break;
 					case ConsoleKey.K:
 						selectedIndex--;
@@ -114,8 +116,8 @@ public static class MainPanel
 	{
 
 		Console.CancelKeyPress += new ConsoleCancelEventHandler((
-            object? sender,
-            ConsoleCancelEventArgs args) => Save(brewLog));
+			object? sender,
+			ConsoleCancelEventArgs args) => Save(brewLog));
 
 		const int TIME_BETWEEN_REFRESH_MS = 1000;
 		Layout mainLayout = GenerateBaseMainLayout(brewLog);

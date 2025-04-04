@@ -12,20 +12,11 @@ public class BrewLog
 	[JsonIgnore]
 	public List<BrewEntry> SortedEntries
 	{
-		get => entries.OrderBy(e => e.startTime).ToList();
+		get => entries.OrderBy(e => e.startTime).Reverse().ToList();
 	}
 
 	public int GetTimeForTopicsInMinutes(Topic[] topics) => GetTimeForTopicsInSeconds(topics) / 60;
 	private int GetTimeForTopicsInHours(Topic[] topics) => GetTimeForTopicsInSeconds(topics) / 3600;
-	public string GetTimeForTopicsFormatted(Topic[] topics) =>
-		$"{GetTimeForTopicsInHours(topics)} hours {GetTimeForTopicsInMinutes(topics)} minutes";
-	public string GetTimeForAllEntriesFormatted()
-	{
-		int seconds = 0;
-		foreach (BrewEntry entry in entries)
-			seconds += entry.lengthSeconds;
-		return $"{seconds / 3600} hours, {(seconds % 3600) / 60} minutes";
-	}
 
 	public BrewLog()
 	{
@@ -60,6 +51,45 @@ public class BrewLog
 
 	public string GetEntriesWithTopicAndDateRangeFormatted(Topic[] topics, TimeInterval timeInterval)
 	{
+		var entriesWithGivenTopicAndDateRange = GetEntriesWithTopicAndDateInterval(topics, timeInterval);
+		int totalSeconds = 0;
+		foreach (var entry in entriesWithGivenTopicAndDateRange)
+		{
+			totalSeconds += entry.lengthSeconds;
+		}
+
+		string totalSecondsFormatted;
+		if (totalSeconds < 60) totalSecondsFormatted = $"{totalSeconds} seconds";
+		else if (totalSeconds < 3600) totalSecondsFormatted = $"{totalSeconds / 60} minutes, {totalSeconds % 60} seconds";
+		else totalSecondsFormatted = $"{totalSeconds / 3600} hours, {(totalSeconds / 3600) % 60} minutes";
+
+		var displayBuilder = new System.Text.StringBuilder();
+		displayBuilder.Append($"You have spent {totalSecondsFormatted} working ");
+
+		bool topicIsEmpty = topics == null || topics.Length == 0;
+		if (!topicIsEmpty)
+		{
+			string topicsDisplay = string.Join(" ", topics.Select(e => e.name));
+			displayBuilder.Append($"on: [blue]{topicsDisplay}[/] ");
+		}
+
+		string suffix = timeInterval switch
+		{
+			TimeInterval.Day => "today",
+			TimeInterval.Week => "this week",
+			TimeInterval.Month => $"in {DateTime.Now.ToString("MMMM")}",
+			TimeInterval.Year => $"in {DateTime.Now.ToString("yyyy")}",
+			TimeInterval.All => "in total",
+			_ => ""
+		};
+
+		displayBuilder.Append(suffix);
+		return displayBuilder.ToString();
+
+	}
+
+	public List<BrewEntry> GetEntriesWithTopicAndDateInterval(Topic[] topics, TimeInterval timeInterval)
+	{
 		var entriesWithGivenTopic = EntriesWithTopic(topics);
 		var entriesWithTopicAndWithinDate = new List<BrewEntry>();
 
@@ -76,7 +106,7 @@ public class BrewLog
 				TimeInterval.Week => entryEndTimeSameWeek,
 				TimeInterval.Month => DateTime.Now.Year == entry.endTime.Year
 					&& DateTime.Now.Month == entry.endTime.Month,
-				TimeInterval.Year => DateTime.Now.Year == entry.endTime.Year, 
+				TimeInterval.Year => DateTime.Now.Year == entry.endTime.Year,
 				TimeInterval.All => true,
 				_ => false,
 			};
@@ -84,38 +114,7 @@ public class BrewLog
 			if (withinTimeRange) entriesWithTopicAndWithinDate.Add(entry);
 
 		}
-
-		int totalSeconds = 0;
-		foreach (var entry in entriesWithGivenTopic) {
-			totalSeconds += entry.lengthSeconds;
-		}
-
-		string totalSecondsFormatted;
-		if (totalSeconds < 60) totalSecondsFormatted = $"{totalSeconds} seconds";
-		else if (totalSeconds < 3600) totalSecondsFormatted = $"{totalSeconds / 60} minutes, {totalSeconds % 60} seconds";
-		else totalSecondsFormatted = $"{totalSeconds / 3600} hours, {(totalSeconds / 3600) % 60} minutes";
-
-		var displayBuilder = new System.Text.StringBuilder();
-		displayBuilder.Append($"You have spent {totalSecondsFormatted} working ");
-
-		bool topicIsEmpty = topics == null || topics.Length == 0;
-		if (!topicIsEmpty) {
-			string topicsDisplay = string.Join(" ", topics.Select(e => e.name));
-			displayBuilder.Append($"on: [blue]{topicsDisplay}[/] ");
-		}
-
-		string suffix = timeInterval switch {
-			TimeInterval.Day => "today",
-			TimeInterval.Week => "this week",
-			TimeInterval.Month => $"in {DateTime.Now.ToString("MMMM")}",
-			TimeInterval.Year => $"in {DateTime.Now.ToString("yyyy")}",
-			TimeInterval.All => "in total",
-			_ => ""
-		};
-
-		displayBuilder.Append(suffix);
-		return displayBuilder.ToString();
-
+		return entriesWithTopicAndWithinDate.OrderBy(e => e.startTime).Reverse().ToList();
 	}
 
 	public void AddEntry(BrewEntry entry)
@@ -127,12 +126,14 @@ public class BrewLog
 		}
 	}
 
-	public List<BrewEntry> EntriesWithTopic(Topic[] topics)
+	public List<BrewEntry> EntriesWithTopic(Topic[] topics, bool includeNoTopics = true)
 	{
 		List<BrewEntry> entriesWithTopic = new List<BrewEntry>();
 		foreach (BrewEntry brewEntry in entries)
 		{
 			bool brewEntryContainsTopic = false;
+			if (brewEntry.topics == null || brewEntry.topics.Length == 0)
+				brewEntryContainsTopic = true;
 			foreach (Topic t in brewEntry.topics)
 				if (topics.Contains(t))
 					brewEntryContainsTopic = true;
@@ -140,34 +141,6 @@ public class BrewLog
 			if (brewEntryContainsTopic) entriesWithTopic.Add(brewEntry);
 		}
 		return entriesWithTopic;
-	}
-
-	public List<BrewEntry> GetEntriesWithTimeInterval(TimeInterval timeInterval)
-	{
-
-		List<BrewEntry> brewEntries = new List<BrewEntry>();
-
-		foreach (BrewEntry brewEntry in brewEntries)
-		{
-			DateTime startTimeOfEntry = brewEntry.startTime;
-
-			bool entryFitsTimeIntreval = timeInterval switch
-			{
-				TimeInterval.Day => startTimeOfEntry.Day == DateTime.Now.Day,
-				TimeInterval.Week =>
-					DateTime.Now.AddDays(-(int)DateTime.Now.DayOfWeek) == startTimeOfEntry.AddDays(-(int)startTimeOfEntry.DayOfWeek),
-				TimeInterval.Month => startTimeOfEntry.Month == DateTime.Now.Month,
-				TimeInterval.Year => startTimeOfEntry.Year == DateTime.Now.Year,
-				TimeInterval.All => true,
-				_ => throw new Exception("Time Interval is null"),
-			};
-
-			if (entryFitsTimeIntreval) brewEntries.Add(brewEntry);
-
-		}
-
-		return brewEntries;
-
 	}
 
 }
