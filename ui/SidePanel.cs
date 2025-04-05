@@ -1,7 +1,6 @@
 using Spectre.Console;
 using System.Text;
 using Brew;
-using CoffeeBrewer;
 
 namespace UI;
 
@@ -69,6 +68,7 @@ public static class MainPanel
 		var escapeFlag = DrawFrameEscapeFlag.None;
 
 		Layout mainLayout = GenerateBaseMainLayout(brewLog);
+		mainLayout["Top"].Update(GetKeybindingsInformationDisplay());
 		AnsiConsole.Live(mainLayout).Start(ctx =>
 		{
 			int selectedIndex = 0;
@@ -77,16 +77,16 @@ public static class MainPanel
 			while (listenToKeypresses)
 			{
 				var keyPressed = Console.ReadKey(true);
+				int numEntriesToShow = brewLog.GetEntriesWithTopicAndDateInterval(selectedTopics, interval).Count();
 				switch (keyPressed.Key)
 				{
 					case ConsoleKey.J:
 						selectedIndex++;
-						int v = brewLog.GetEntriesWithTopicAndDateInterval(brewLog.Topics.ToArray(), interval).Count();
-						if (selectedIndex >= v) selectedIndex = 0;
+						if (selectedIndex >= numEntriesToShow) selectedIndex = 0;
 						break;
 					case ConsoleKey.K:
 						selectedIndex--;
-						if (selectedIndex < 0) selectedIndex = brewLog.Entries.Count() - 1;
+						if (selectedIndex < 0) selectedIndex = numEntriesToShow - 1;
 						break;
 					case ConsoleKey.E:
 						Save(brewLog);
@@ -144,7 +144,7 @@ public static class MainPanel
 		Layout mainLayout = GenerateBaseMainLayout(brewLog);
 
 		Panel coffeeInfo = GetCoffeeInformationDisplay(entryToDisplay, entryToDisplay.lengthSeconds);
-		Panel keybindingsInfo = GetKeybindingsInformationDisplay();
+		Panel keybindingsInfo = GetKeybindingsInformationDisplayTimer();
 
 		mainLayout["Top"]
 			.SplitColumns(
@@ -227,13 +227,26 @@ public static class MainPanel
 		return coffeeInfo;
 	}
 
-	private static Panel GetKeybindingsInformationDisplay()
+	private static Panel GetKeybindingsInformationDisplayTimer()
 	{
 		var panelText =
 			new StringBuilder()
 			.AppendLine("i: increment the timer by 10 seconds")
 			.AppendLine("s: you have finished the assignment early");
 		return new Panel(panelText.ToString());
+	}
+
+	private static Panel GetKeybindingsInformationDisplay() {
+		var panelText = new StringBuilder()
+					.AppendLine("j, k: scroll (up, down) between the entries on the side panel")
+					.AppendLine("a: add an entry")
+					.AppendLine("e: save and exit")
+					.AppendLine("b: filter by topic")
+					.AppendLine("x: delete selected entry")
+					.AppendLine("f: cycle between filtered time intervals");
+
+		return new Panel(panelText.ToString());
+
 	}
 
 	private static Layout GenerateBaseMainLayout(BrewLog brewLog)
@@ -256,8 +269,7 @@ public static class MainPanel
 
 		mainLayout["Side"].Update(SidePanel.GetSidePanel(brewLog, -1, interval, new Topic[] { }));
 
-		//Canvas coffeeDrawing = new Canvas(32, 32);
-		//DrawCoffee(coffeeDrawing, ((mainLayout.Size ?? 0 / 2), 0));
+		//Canvas coffeeDrawing = CoffeeImage.CoffeeCanvas();
 		//mainLayout["Image"].Update(Align.Center(coffeeDrawing));
 
 		return mainLayout;
@@ -268,15 +280,6 @@ public static class MainPanel
 		SaveLoad.SaveBrewLog(brewLog);
 		Environment.Exit(0);
 	}
-
-	static void DrawCoffee(Canvas canvas, (int, int) padding)
-	{
-		foreach ((int x, int y) in CoffeeImage.coffeeImage.Keys)
-		{
-			canvas.SetPixel(x, y, CoffeeImage.coffeeImage[(x + padding.Item1, y + padding.Item2)]);
-		}
-	}
-
 	private enum DrawFrameEscapeFlag
 	{
 		None,

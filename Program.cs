@@ -18,6 +18,10 @@ class Program
 		brewLog.AddEntry(new BrewEntry("Last Week", DateTime.Now.AddDays(-5), 30, new Topic[] { }));
 		brewLog.AddEntry(new BrewEntry("Last Month", DateTime.Now.AddMonths(-1).AddDays(10), 30, new Topic[0]));
 		brewLog.AddEntry(new BrewEntry("Last Year", DateTime.Now.AddYears(-1).AddDays(5), 30, new Topic[0]));
+		brewLog.AddEntry(new BrewEntry("Last Year", DateTime.Now.AddYears(-1).AddDays(5), 30, new Topic[0]));
+		brewLog.AddEntry(new BrewEntry("Last Year", DateTime.Now.AddYears(-1).AddDays(5), 30, new Topic[0]));
+		brewLog.AddEntry(new BrewEntry("Last Year", DateTime.Now.AddYears(-1).AddDays(5), 30, new Topic[0]));
+		brewLog.AddEntry(new BrewEntry("Last Year", DateTime.Now.AddYears(-1).AddDays(5), 30, new Topic[0]));
 		MainPanel.DrawFrame(brewLog);
 	}
 }
