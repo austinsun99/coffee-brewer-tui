@@ -66,7 +66,7 @@ public class BrewLog
 		var displayBuilder = new System.Text.StringBuilder();
 		displayBuilder.Append($"You have spent {totalSecondsFormatted} working ");
 
-		bool topicIsEmpty = topics == null || topics.Length == 0;
+		bool topicIsEmpty = topics.Length == 0;
 		if (!topicIsEmpty)
 		{
 			string topicsDisplay = string.Join(" ", topics.Select(e => e.name));
@@ -132,7 +132,7 @@ public class BrewLog
 		foreach (BrewEntry brewEntry in entries)
 		{
 			bool brewEntryContainsTopic = false;
-			if (brewEntry.topics == null || brewEntry.topics.Length == 0)
+			if (topics.Length == 0)
 				brewEntryContainsTopic = true;
 			foreach (Topic t in brewEntry.topics)
 				if (topics.Contains(t))

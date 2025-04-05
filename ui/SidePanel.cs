@@ -8,12 +8,12 @@ namespace UI;
 public static class SidePanel
 {
 
-	public static Layout GetSidePanel(BrewLog brewLog, int selectedIndex, TimeInterval interval)
+	public static Layout GetSidePanel(BrewLog brewLog, int selectedIndex, TimeInterval interval, Topic[] selectedTopics)
 	{
 		Layout sidePanel = new Layout("Root");
 
 		string timeDisplay =
-			brewLog.GetEntriesWithTopicAndDateRangeFormatted(brewLog.Topics.ToArray(), interval);
+			brewLog.GetEntriesWithTopicAndDateRangeFormatted(selectedTopics, interval);
 		Panel topDisplayPanel = new Panel(timeDisplay);
 
 		Table logTable = new Table();
@@ -24,7 +24,7 @@ public static class SidePanel
 		logTable.AddRow(topDisplayPanel);
 		logTable.AddEmptyRow();
 
-		var filteredEntries = brewLog.GetEntriesWithTopicAndDateInterval(brewLog.Topics.ToArray(), interval);
+		var filteredEntries = brewLog.GetEntriesWithTopicAndDateInterval(selectedTopics, interval);
 		for (int i = 0; i < filteredEntries.Count(); i++)
 		{
 			logTable.AddRow((StudyLogPanel(filteredEntries[i], i == selectedIndex)));
@@ -57,18 +57,22 @@ public static class SidePanel
 public static class MainPanel
 {
 	static TimeInterval interval;
+	static Topic[] selectedTopics = new Topic[] { };
+
 	public static void DrawFrame(BrewLog brewLog)
 	{
 		Console.CancelKeyPress += new ConsoleCancelEventHandler((
 			object? sender,
 			ConsoleCancelEventArgs args) => Save(brewLog));
 
+		bool listenToKeypresses = true;
+		var escapeFlag = DrawFrameEscapeFlag.None;
+
 		Layout mainLayout = GenerateBaseMainLayout(brewLog);
 		AnsiConsole.Live(mainLayout).Start(ctx =>
 		{
-			bool listenToKeypresses = true;
 			int selectedIndex = 0;
-			mainLayout["Side"].Update(SidePanel.GetSidePanel(brewLog, selectedIndex, interval));
+			mainLayout["Side"].Update(SidePanel.GetSidePanel(brewLog, selectedIndex, interval, selectedTopics));
 			ctx.Refresh();
 			while (listenToKeypresses)
 			{
@@ -88,6 +92,11 @@ public static class MainPanel
 						Save(brewLog);
 						break;
 					case ConsoleKey.A:
+						escapeFlag = DrawFrameEscapeFlag.AddEntry;
+						listenToKeypresses = false;
+						break;
+					case ConsoleKey.B:
+						escapeFlag = DrawFrameEscapeFlag.FilterByTopic;
 						listenToKeypresses = false;
 						break;
 					case ConsoleKey.X:
@@ -103,12 +112,24 @@ public static class MainPanel
 						AnsiConsole.Clear();
 						break;
 				}
-				mainLayout["Side"].Update(SidePanel.GetSidePanel(brewLog, selectedIndex, interval));
+				mainLayout["Side"].Update(SidePanel.GetSidePanel(brewLog, selectedIndex, interval, selectedTopics));
 				ctx.Refresh();
 			}
 		});
 
-		Prompts.PromptAndAddNewEntry(brewLog);
+		switch (escapeFlag)
+		{
+			case DrawFrameEscapeFlag.AddEntry:
+				Prompts.PromptAndAddNewEntry(brewLog);
+				break;
+			case DrawFrameEscapeFlag.FilterByTopic:
+				AnsiConsole.Clear();
+				selectedTopics = Prompts.PromptSelectTopics(brewLog);
+				DrawFrame(brewLog);
+				break;
+			default:
+				break;
+		}
 
 	}
 
@@ -233,7 +254,7 @@ public static class MainPanel
 		mainLayout["Top"].Ratio(2);
 		mainLayout["Image"].Ratio(5);
 
-		mainLayout["Side"].Update(SidePanel.GetSidePanel(brewLog, -1, interval));
+		mainLayout["Side"].Update(SidePanel.GetSidePanel(brewLog, -1, interval, new Topic[] { }));
 
 		//Canvas coffeeDrawing = new Canvas(32, 32);
 		//DrawCoffee(coffeeDrawing, ((mainLayout.Size ?? 0 / 2), 0));
@@ -254,5 +275,12 @@ public static class MainPanel
 		{
 			canvas.SetPixel(x, y, CoffeeImage.coffeeImage[(x + padding.Item1, y + padding.Item2)]);
 		}
+	}
+
+	private enum DrawFrameEscapeFlag
+	{
+		None,
+		AddEntry,
+		FilterByTopic,
 	}
 }

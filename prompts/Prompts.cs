@@ -5,11 +5,10 @@ namespace Brew;
 
 public static class Prompts
 {
-    private const string ADD_NEW_TOPICS_CHOICE_TEXT = "[red]Add new topics[/]";
+	private const string ADD_NEW_TOPICS_CHOICE_TEXT = "[red]Add new topics[/]";
 
-    public static void PromptAndAddNewEntry(BrewLog brewLog)
+	public static void PromptAndAddNewEntry(BrewLog brewLog)
 	{
-
 		AnsiConsole.Clear();
 		AnsiConsole.Write(new Rule("[purple]Coffee Brewer[/]"));
 
@@ -24,17 +23,20 @@ public static class Prompts
 				.PageSize(10)
 				.MoreChoicesText("[grey](Move up and down to reveal more fruits)[/]")
 				.InstructionsText(
-					"[grey](Press [blue]<space>[/] to toggle a tag, " + 
+					"[grey](Press [blue]<space>[/] to toggle a tag, " +
 					"[green]<enter>[/] to accept)[/]")
 				.AddChoices(topicsToDisplay.ToArray()));
 
-		if (topics.Remove(ADD_NEW_TOPICS_CHOICE_TEXT)) {
+		if (topics.Remove(ADD_NEW_TOPICS_CHOICE_TEXT))
+		{
 			List<Topic> addedTopics = PromptAddTopics().ToList();
 
 			List<string> duplicateTopics = new List<string>();
-			foreach (Topic t in addedTopics) {
+			foreach (Topic t in addedTopics)
+			{
 				bool added = brewLog.Topics.Add(t);
-				if (!added) {
+				if (!added)
+				{
 					duplicateTopics.Add(t.name);
 					addedTopics.Remove(t);
 				}
@@ -53,14 +55,30 @@ public static class Prompts
 	{
 
 		List<Topic> topics = new List<Topic>();
-		string topicsPrompt = 
+		string topicsPrompt =
 			AnsiConsole.Prompt(new TextPrompt<string>("Create new tags (Separate tags with a space):"));
 
-		foreach (string topic in topicsPrompt.Split(" ")) {
+		foreach (string topic in topicsPrompt.Split(" "))
+		{
 			topics.Add(new Topic(topic));
 		}
 
 		return topics.ToArray();
+	}
+
+	public static Topic[] PromptSelectTopics(BrewLog brewLog)
+	{
+		var topicNames = AnsiConsole.Prompt(
+		new MultiSelectionPrompt<string>()
+			.Title("Select the [blue]topics[/] to filter by, or select none to select all")
+			.NotRequired() // Not required to have a favorite fruit
+			.PageSize(10)
+			.MoreChoicesText("[grey](Move up and down to reveal more fruits)[/]")
+			.InstructionsText(
+				"[grey](Press [blue]<space>[/] to toggle a fruit, " +
+				"[green]<enter>[/] to accept)[/]")
+			.AddChoices(brewLog.Topics.ToArray().Select(t => t.name)));
+		return brewLog.GetTopicsFromNames(topicNames);
 	}
 
 }

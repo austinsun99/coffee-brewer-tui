@@ -20,7 +20,10 @@ static class SaveLoad
 		using (var reader = new StreamReader(SAVE_PATH)) {
 			string text = reader.ReadToEnd();
 			var brewLog = JsonSerializer.Deserialize<BrewLog>(text);
-			if (brewLog == null) Console.WriteLine("BrewLog is null");
+
+			if (brewLog == null) 
+			{Console.WriteLine("BrewLog is null"); return new BrewLog();}
+
 			else Console.WriteLine("Brewlog is not null");
 
 			foreach (var topic in brewLog.Topics) {
