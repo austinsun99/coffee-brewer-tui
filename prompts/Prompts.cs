@@ -47,7 +47,7 @@ public static class Prompts
 
 		AnsiConsole.MarkupLineInterpolated($"You've selected the following tags: [blue]{string.Join(" ", topics)}[/]");
 
-		int length = AnsiConsole.Prompt(new TextPrompt<int>("How long would you like to do this activity (in minutes):"));// * 60;
+		int length = AnsiConsole.Prompt(new TextPrompt<int>("How long would you like to do this activity (in minutes):")) * 60;
 		MainPanel.DrawTimerFrame(brewLog, new BrewEntry(entryName, DateTime.Now, length, brewLog.GetTopicsFromNames(topics)));
 	}
 

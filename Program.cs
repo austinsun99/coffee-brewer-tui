@@ -12,16 +12,12 @@ class Program
 		AnsiConsole.Clear();
 		//BrewLog brewLog = SaveLoad.LoadBrewLog();
 		BrewLog brewLog = new BrewLog();
-		brewLog.AddEntry(new BrewEntry("Now", DateTime.Now, 30, new Topic[] { new Topic("Now"), new Topic("Homework") }));
-		brewLog.AddEntry(new BrewEntry("Today", DateTime.Now.Date, 30, new Topic[] { new Topic("Today"), new Topic("Homework") }));
-		brewLog.AddEntry(new BrewEntry("Yesterday", DateTime.Now.AddDays(-1.5), 30, new Topic[] { new Topic("Yesterday") }));
-		brewLog.AddEntry(new BrewEntry("Last Week", DateTime.Now.AddDays(-5), 30, new Topic[] { }));
 		brewLog.AddEntry(new BrewEntry("Last Month", DateTime.Now.AddMonths(-1).AddDays(10), 30, new Topic[0]));
 		brewLog.AddEntry(new BrewEntry("Last Year", DateTime.Now.AddYears(-1).AddDays(5), 30, new Topic[0]));
 		brewLog.AddEntry(new BrewEntry("Last Year", DateTime.Now.AddYears(-1).AddDays(5), 30, new Topic[0]));
 		brewLog.AddEntry(new BrewEntry("Last Year", DateTime.Now.AddYears(-1).AddDays(5), 30, new Topic[0]));
 		brewLog.AddEntry(new BrewEntry("Last Year", DateTime.Now.AddYears(-1).AddDays(5), 30, new Topic[0]));
 		brewLog.AddEntry(new BrewEntry("Last Year", DateTime.Now.AddYears(-1).AddDays(5), 30, new Topic[0]));
-		MainPanel.DrawFrame(brewLog);
+		MainPanel.DrawTimerFrame(brewLog, new BrewEntry("Math Homework", DateTime.Now, 300, new Topic[] { new Topic("Math"), new Topic("Homework") }));
 	}
 }

@@ -64,7 +64,7 @@ public class BrewLog
 		else totalSecondsFormatted = $"{totalSeconds / 3600} hours, {(totalSeconds / 3600) % 60} minutes";
 
 		var displayBuilder = new System.Text.StringBuilder();
-		displayBuilder.Append($"You have spent {totalSecondsFormatted} working ");
+		displayBuilder.Append($"You have spent [green]{totalSecondsFormatted}[/] working ");
 
 		bool topicIsEmpty = topics.Length == 0;
 		if (!topicIsEmpty)
@@ -83,7 +83,7 @@ public class BrewLog
 			_ => ""
 		};
 
-		displayBuilder.Append(suffix);
+		displayBuilder.Append($"[green]{suffix}[/]");
 		return displayBuilder.ToString();
 
 	}

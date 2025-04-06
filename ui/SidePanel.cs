@@ -37,11 +37,16 @@ public static class SidePanel
 	private static Panel StudyLogPanel(BrewEntry entry, bool selected = false)
 	{
 
-		//TODO: Fix header being cut off
 		string topics = string.Join(" ", entry.topics.Select(t => $"[[{t.name}]]"));
-		StringBuilder panelInfo = new StringBuilder()
-			.AppendLine($"[blue]{topics}[/]")
-			.AppendLine(entry.GetLengthFormatted());
+		string entryTime = entry.GetLengthFormatted();
+
+		topics += string.Join(" ", new string[Math.Max(0, entry.name.Length + 1 - topics.Length)]);
+		entryTime += string.Join(" ", new string[Math.Max(0, entry.name.Length + 1 - entryTime.Length)]);
+
+		var panelInfo = new StringBuilder();
+		if (entry.topics.Length != 0) panelInfo.AppendLine($"[blue]{topics}[/]");
+
+		panelInfo.AppendLine(entryTime);
 
 		var panel = new Panel(panelInfo.ToString());
 		panel.Header = new PanelHeader(entry.name);
@@ -69,6 +74,7 @@ public static class MainPanel
 
 		Layout mainLayout = GenerateBaseMainLayout(brewLog);
 		mainLayout["Top"].Update(GetKeybindingsInformationDisplay());
+		mainLayout["Image"].Update(new FigletText("Coffee Brewer.").Centered().Color(Color.SandyBrown));
 		AnsiConsole.Live(mainLayout).Start(ctx =>
 		{
 			int selectedIndex = 0;
@@ -86,7 +92,7 @@ public static class MainPanel
 						break;
 					case ConsoleKey.K:
 						selectedIndex--;
-						if (selectedIndex < 0) selectedIndex = numEntriesToShow - 1;
+						if (selectedIndex < 0) selectedIndex = numEntriesToShow;
 						break;
 					case ConsoleKey.E:
 						Save(brewLog);
@@ -143,22 +149,30 @@ public static class MainPanel
 		const int TIME_BETWEEN_REFRESH_MS = 1000;
 		Layout mainLayout = GenerateBaseMainLayout(brewLog);
 
-		Panel coffeeInfo = GetCoffeeInformationDisplay(entryToDisplay, entryToDisplay.lengthSeconds);
 		Panel keybindingsInfo = GetKeybindingsInformationDisplayTimer();
 
 		mainLayout["Top"]
-			.SplitColumns(
-				new Layout("CoffeeInfoDisplay")
-				.Ratio(2)
-				.Update(coffeeInfo),
-				new Layout("KeybindingsInfoDisplay")
-				.Ratio(1)
-				.Update(keybindingsInfo));
+				.Update(keybindingsInfo);
+
+		mainLayout["Image"]
+			.Ratio(5)
+			.SplitRows(
+					new Layout("CoffeeInfoDisplay"),
+					new Layout("BrewingText"),
+					new Layout("CoffeeImage"),
+					new Layout("CoffeeTimer"));
+
+		mainLayout["CoffeeInfoDisplay"].Ratio(1)
+			.Update(Align.Center(GetCoffeeInformationPanel(entryToDisplay), VerticalAlignment.Middle));
+		mainLayout["CoffeeImage"].Ratio(5);
+		mainLayout["BrewingText"].Ratio(3);
+		mainLayout["CoffeeTimer"].Ratio(1);
 
 		AnsiConsole.Live(mainLayout)
 			.Start(ctx =>
 			{
 
+				int brewDots = 1;
 				int secondsUntilActivityFinishes = entryToDisplay.lengthSeconds;
 				var activityTimeStopwatch = new System.Diagnostics.Stopwatch();
 				activityTimeStopwatch.Start();
@@ -167,6 +181,14 @@ public static class MainPanel
 
 				Func<int> GetTimeLeft = ()
 					=> secondsUntilActivityFinishes - (int)activityTimeStopwatch.Elapsed.TotalSeconds;
+
+				Action UpdateTimeLeft = ()
+				=>
+				{
+					string timerText = $"{GetTimeLeft() / 60} minutes, {GetTimeLeft() % 60} seconds left until coffee is done brewing";
+					mainLayout["CoffeeTimer"].Update(
+							Align.Center(new Panel(timerText), VerticalAlignment.Middle));
+				};
 
 				Task t = Task.Factory.StartNew(() =>
 				{
@@ -183,18 +205,23 @@ public static class MainPanel
 								secondsUntilActivityFinishes = 0;
 								break;
 						}
-						coffeeInfo = GetCoffeeInformationDisplay(entryToDisplay, GetTimeLeft());
-						mainLayout["CoffeeInfoDisplay"].Update(coffeeInfo);
+						UpdateTimeLeft();
 						ctx.Refresh();
 					}
 				}, tokenSource.Token);
 
-				//TODO: better formatting
-
 				while (activityTimeStopwatch.Elapsed.TotalSeconds < secondsUntilActivityFinishes)
 				{
-					coffeeInfo = GetCoffeeInformationDisplay(entryToDisplay, GetTimeLeft());
-					mainLayout["CoffeeInfoDisplay"].Update(coffeeInfo);
+					mainLayout["CoffeeImage"].Update(Align.Center(CoffeeImage.CoffeeASCII()));
+
+					string brewingText = "Brewing" + new string('.', brewDots);
+					mainLayout["BrewingText"].Update(Align.Center(
+								new FigletText(brewingText).Color(Color.RosyBrown)));
+					brewDots++;
+					if (brewDots >= 4) brewDots = 1;
+
+					UpdateTimeLeft();
+
 					ctx.Refresh();
 					Thread.Sleep(TIME_BETWEEN_REFRESH_MS);
 				}
@@ -211,17 +238,24 @@ public static class MainPanel
 		DrawFrame(brewLog);
 	}
 
-	private static Panel GetCoffeeInformationDisplay(BrewEntry entryToDisplay, int timeLeft)
+	private static Panel GetCoffeeInformationPanel(BrewEntry entryToDisplay)
 	{
 		string topicsFormatted = string.Join(" ", entryToDisplay.topics.Select(t => $"[[{t.name}]]"));
+		string ingredientsFormatted = entryToDisplay.topics.Length == 0 ?
+			" " : $"Ingredients in coffee: {topicsFormatted}";
+
 		var panelText =
 			new StringBuilder()
 			.AppendLine()
-			.AppendFormat("Currently Brewing: {0}", entryToDisplay.name)
-			.AppendLine()
-			.Append("[blue]").AppendFormat("Ingredients in coffee: {0}", topicsFormatted).Append("[/]")
-			.AppendLine()
-			.AppendLine($"{timeLeft / 60} minutes, {timeLeft % 60} seconds left until coffee is done brewing");
+			.AppendFormat("{0}", entryToDisplay.name);
+
+		if (entryToDisplay.topics.Length != 0)
+		{
+			panelText
+				.AppendLine()
+				.Append("[blue]").AppendFormat(ingredientsFormatted).Append("[/]");
+		}
+
 		Panel coffeeInfo = new Panel(panelText.ToString());
 		coffeeInfo.Border = BoxBorder.None;
 		return coffeeInfo;
@@ -229,23 +263,46 @@ public static class MainPanel
 
 	private static Panel GetKeybindingsInformationDisplayTimer()
 	{
-		var panelText =
-			new StringBuilder()
-			.AppendLine("i: increment the timer by 10 seconds")
-			.AppendLine("s: you have finished the assignment early");
-		return new Panel(panelText.ToString());
+		var panelText = new StringBuilder();
+
+		Action<string, string> AddKeybinding = (string keys, string description) =>
+		{
+			panelText.AppendLine($"[purple]{keys}[/]: {description}");
+		};
+
+		AddKeybinding("i", "increment the timer by 10 seconds");
+		AddKeybinding("s", "you have finished the assignment early"); ;
+
+		var panel = new Panel(Align.Left(
+			new Markup(panelText.ToString()),
+			VerticalAlignment.Bottom));
+		panel.Border = BoxBorder.None;
+		panel.Expand = true;
+		return panel;
 	}
 
-	private static Panel GetKeybindingsInformationDisplay() {
-		var panelText = new StringBuilder()
-					.AppendLine("j, k: scroll (up, down) between the entries on the side panel")
-					.AppendLine("a: add an entry")
-					.AppendLine("e: save and exit")
-					.AppendLine("b: filter by topic")
-					.AppendLine("x: delete selected entry")
-					.AppendLine("f: cycle between filtered time intervals");
+	private static Panel GetKeybindingsInformationDisplay()
+	{
+		var panelText = new StringBuilder();
 
-		return new Panel(panelText.ToString());
+		Action<string, string> AddKeybinding = (string keys, string description) =>
+		{
+			panelText.AppendLine($"[purple]{keys}[/]: {description}");
+		};
+
+		AddKeybinding("j, k", "scroll (up, down) between the entries on the side panel");
+		AddKeybinding("a", "add an entry");
+		AddKeybinding("e", "save and exit");
+		AddKeybinding("b", "filter by topic");
+		AddKeybinding("x", "delete selected entry");
+		AddKeybinding("f", "cycle between filtered time intervals"); ;
+
+		var panel = new Panel(Align.Left(
+			new Markup(panelText.ToString()),
+			VerticalAlignment.Bottom));
+		panel.Border = BoxBorder.None;
+		panel.Expand = true;
+		return panel;
 
 	}
 
@@ -261,16 +318,13 @@ public static class MainPanel
 		mainLayout["Main"].Ratio(2);
 
 		mainLayout["Main"].SplitRows(
-				new Layout("Top"),
-				new Layout("Image")
+				new Layout("Image"),
+				new Layout("Top")
 				);
-		mainLayout["Top"].Ratio(2);
-		mainLayout["Image"].Ratio(5);
+		mainLayout["Top"].Ratio(1);
+		mainLayout["Image"].Ratio(4);
 
 		mainLayout["Side"].Update(SidePanel.GetSidePanel(brewLog, -1, interval, new Topic[] { }));
-
-		//Canvas coffeeDrawing = CoffeeImage.CoffeeCanvas();
-		//mainLayout["Image"].Update(Align.Center(coffeeDrawing));
 
 		return mainLayout;
 	}
