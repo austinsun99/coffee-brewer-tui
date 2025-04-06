@@ -31,11 +31,11 @@ static class SaveLoad
 
 			foreach (var topic in brewLog.Topics)
 			{
-				Console.WriteLine($"Topic: {topic.name}");
+				Console.WriteLine($"Topic: {topic}");
 			}
 			foreach (var entry in brewLog.Entries)
 			{
-				Console.WriteLine($"Entry: {entry.name}, {entry.lengthSeconds}");
+				Console.WriteLine($"Entry: {entry.name}, Unfocused time: {entry.unfocusedTimeSeconds}, Focused time: {entry.focusedTimeSeconds}");
 			}
 			return brewLog;
 		}

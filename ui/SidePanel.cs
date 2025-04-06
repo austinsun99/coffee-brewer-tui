@@ -7,7 +7,7 @@ namespace UI;
 public static class SidePanel
 {
 
-	public static Layout GetSidePanel(BrewLog brewLog, int selectedIndex, TimeInterval interval, Topic[] selectedTopics)
+	public static Layout GetSidePanel(BrewLog brewLog, int selectedIndex, TimeInterval interval, string[] selectedTopics)
 	{
 		Layout sidePanel = new Layout("Root");
 
@@ -23,7 +23,7 @@ public static class SidePanel
 		logTable.AddRow(topDisplayPanel);
 		logTable.AddEmptyRow();
 
-		var filteredEntries = brewLog.GetEntriesWithTopicAndDateInterval(selectedTopics, interval);
+		var filteredEntries = brewLog.GetEntriesWithTopicAndTimeInterval(selectedTopics, interval);
 		for (int i = 0; i < filteredEntries.Count(); i++)
 		{
 			logTable.AddRow((StudyLogPanel(filteredEntries[i], i == selectedIndex)));
@@ -37,16 +37,19 @@ public static class SidePanel
 	private static Panel StudyLogPanel(BrewEntry entry, bool selected = false)
 	{
 
-		string topics = string.Join(" ", entry.topics.Select(t => $"[[{t.name}]]"));
-		string entryTime = entry.GetLengthFormatted();
+		string topics = string.Join(" ", entry.topics.Select(t => $"[[{t}]]"));
+		string unfocusedTimeFormatted = entry.UnfocusedTimeFormatted;
+		string focusedTimeFormatted = entry.FocusedTimeFormatted;
 
 		topics += string.Join(" ", new string[Math.Max(0, entry.name.Length + 1 - topics.Length)]);
-		entryTime += string.Join(" ", new string[Math.Max(0, entry.name.Length + 1 - entryTime.Length)]);
+		unfocusedTimeFormatted += string.Join(" ", new string[Math.Max(0, entry.name.Length + 1 - unfocusedTimeFormatted.Length)]);
+		focusedTimeFormatted += string.Join(" ", new string[Math.Max(0, entry.name.Length + 1 - focusedTimeFormatted.Length)]);
 
 		var panelInfo = new StringBuilder();
 		if (entry.topics.Length != 0) panelInfo.AppendLine($"[blue]{topics}[/]");
 
-		panelInfo.AppendLine(entryTime);
+		panelInfo.AppendLine(unfocusedTimeFormatted);
+		panelInfo.AppendLine(focusedTimeFormatted);
 
 		var panel = new Panel(panelInfo.ToString());
 		panel.Header = new PanelHeader(entry.name);
@@ -60,8 +63,8 @@ public static class SidePanel
 
 public static class MainPanel
 {
-	static TimeInterval interval;
-	static Topic[] selectedTopics = new Topic[] { };
+	static TimeInterval interval = TimeInterval.All;
+	static string[] selectedTopics = new string[] { };
 
 	public static void DrawFrame(BrewLog brewLog)
 	{
@@ -83,7 +86,7 @@ public static class MainPanel
 			while (listenToKeypresses)
 			{
 				var keyPressed = Console.ReadKey(true);
-				int numEntriesToShow = brewLog.GetEntriesWithTopicAndDateInterval(selectedTopics, interval).Count();
+				int numEntriesToShow = brewLog.GetEntriesWithTopicAndTimeInterval(selectedTopics, interval).Count();
 				switch (keyPressed.Key)
 				{
 					case ConsoleKey.J:
@@ -92,7 +95,7 @@ public static class MainPanel
 						break;
 					case ConsoleKey.K:
 						selectedIndex--;
-						if (selectedIndex < 0) selectedIndex = numEntriesToShow;
+						if (selectedIndex < 0) selectedIndex = numEntriesToShow - 1;
 						break;
 					case ConsoleKey.E:
 						Save(brewLog);
@@ -130,7 +133,7 @@ public static class MainPanel
 				break;
 			case DrawFrameEscapeFlag.FilterByTopic:
 				AnsiConsole.Clear();
-				selectedTopics = Prompts.PromptSelectTopics(brewLog);
+				selectedTopics = Prompts.PromptSelectTopics(brewLog).ToArray();
 				DrawFrame(brewLog);
 				break;
 			default:
@@ -173,14 +176,22 @@ public static class MainPanel
 			{
 
 				int brewDots = 1;
-				int secondsUntilActivityFinishes = entryToDisplay.lengthSeconds;
-				var activityTimeStopwatch = new System.Diagnostics.Stopwatch();
-				activityTimeStopwatch.Start();
+				int secondsUntilActivityFinishes = entryToDisplay.totalTimeSeconds;
+				bool focused = false;
+
+				var unfocusedTimeStopwatch = new System.Diagnostics.Stopwatch();
+				var focusedTimeStopwatch = new System.Diagnostics.Stopwatch();
+				unfocusedTimeStopwatch.Start();
+				focusedTimeStopwatch.Start();
 
 				var tokenSource = new CancellationTokenSource();
 
+				Func<int> TotalElapsedSeconds = ()
+					=> (int)unfocusedTimeStopwatch.Elapsed.TotalSeconds
+					+ (int)focusedTimeStopwatch.Elapsed.TotalSeconds;
+
 				Func<int> GetTimeLeft = ()
-					=> secondsUntilActivityFinishes - (int)activityTimeStopwatch.Elapsed.TotalSeconds;
+					=> secondsUntilActivityFinishes - TotalElapsedSeconds();
 
 				Action UpdateTimeLeft = ()
 				=>
@@ -204,13 +215,16 @@ public static class MainPanel
 							case ConsoleKey.S:
 								secondsUntilActivityFinishes = 0;
 								break;
+							case ConsoleKey.P:
+								focused = !focused;
+								break;
 						}
 						UpdateTimeLeft();
 						ctx.Refresh();
 					}
 				}, tokenSource.Token);
 
-				while (activityTimeStopwatch.Elapsed.TotalSeconds < secondsUntilActivityFinishes)
+				while (TotalElapsedSeconds() < secondsUntilActivityFinishes)
 				{
 					mainLayout["CoffeeImage"].Update(Align.Center(CoffeeImage.CoffeeASCII()));
 
@@ -220,6 +234,18 @@ public static class MainPanel
 					brewDots++;
 					if (brewDots >= 4) brewDots = 1;
 
+					if (focused)
+					{
+						unfocusedTimeStopwatch.Stop();
+						focusedTimeStopwatch.Start();
+					}
+					else
+					{
+
+						unfocusedTimeStopwatch.Start();
+						focusedTimeStopwatch.Stop();
+					}
+
 					UpdateTimeLeft();
 
 					ctx.Refresh();
@@ -228,10 +254,12 @@ public static class MainPanel
 
 				tokenSource.Cancel();
 				tokenSource.Dispose();
-				activityTimeStopwatch.Stop();
-				TimeSpan activityTotalTime = activityTimeStopwatch.Elapsed;
 
-				entryToDisplay.lengthSeconds = (int)activityTotalTime.TotalSeconds;
+				unfocusedTimeStopwatch.Stop();
+				focusedTimeStopwatch.Stop();
+
+				entryToDisplay.unfocusedTimeSeconds = (int)unfocusedTimeStopwatch.Elapsed.TotalSeconds;
+				entryToDisplay.focusedTimeSeconds = (int)focusedTimeStopwatch.Elapsed.TotalSeconds;
 			});
 
 		brewLog.AddEntry(entryToDisplay);
@@ -240,7 +268,7 @@ public static class MainPanel
 
 	private static Panel GetCoffeeInformationPanel(BrewEntry entryToDisplay)
 	{
-		string topicsFormatted = string.Join(" ", entryToDisplay.topics.Select(t => $"[[{t.name}]]"));
+		string topicsFormatted = string.Join(" ", entryToDisplay.topics.Select(t => $"[[{t}]]"));
 		string ingredientsFormatted = entryToDisplay.topics.Length == 0 ?
 			" " : $"Ingredients in coffee: {topicsFormatted}";
 
@@ -324,7 +352,7 @@ public static class MainPanel
 		mainLayout["Top"].Ratio(1);
 		mainLayout["Image"].Ratio(4);
 
-		mainLayout["Side"].Update(SidePanel.GetSidePanel(brewLog, -1, interval, new Topic[] { }));
+		mainLayout["Side"].Update(SidePanel.GetSidePanel(brewLog, -1, interval, new string[] { }));
 
 		return mainLayout;
 	}
@@ -334,6 +362,7 @@ public static class MainPanel
 		SaveLoad.SaveBrewLog(brewLog);
 		Environment.Exit(0);
 	}
+
 	private enum DrawFrameEscapeFlag
 	{
 		None,

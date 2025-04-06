@@ -13,7 +13,7 @@ public static class Prompts
 		AnsiConsole.Write(new Rule("[purple]Coffee Brewer[/]"));
 
 		List<string> topicsToDisplay = new List<string> { ADD_NEW_TOPICS_CHOICE_TEXT };
-		topicsToDisplay.AddRange(brewLog.Topics.ToList().Select(t => t.name));
+		topicsToDisplay.AddRange(brewLog.Topics);
 
 		string entryName = AnsiConsole.Prompt(new TextPrompt<string>("Enter the name of the activity:"));
 		List<string> topics = AnsiConsole.Prompt(
@@ -27,46 +27,46 @@ public static class Prompts
 					"[green]<enter>[/] to accept)[/]")
 				.AddChoices(topicsToDisplay.ToArray()));
 
+			
+		List<string> addedTopics = PromptAddTopics();
 		if (topics.Remove(ADD_NEW_TOPICS_CHOICE_TEXT))
 		{
-			List<Topic> addedTopics = PromptAddTopics().ToList();
-
 			List<string> duplicateTopics = new List<string>();
-			foreach (Topic t in addedTopics)
+
+			foreach (string t in addedTopics)
 			{
-				bool added = brewLog.Topics.Add(t);
-				if (!added)
+				if (!brewLog.Topics.Add(t))
 				{
-					duplicateTopics.Add(t.name);
+					duplicateTopics.Add(t);
 					addedTopics.Remove(t);
 				}
 			}
-			topics.AddRange(addedTopics.Select(t => t.name));
-			if (duplicateTopics.Count != 0) AnsiConsole.MarkupLineInterpolated($"Duplicate topics: [blue]{string.Join(" ", duplicateTopics)}[/]");
+			topics.AddRange(addedTopics);
+			if (duplicateTopics.Count != 0)
+				AnsiConsole.MarkupLineInterpolated($"Duplicate topics: [blue]{string.Join(" ", duplicateTopics)}[/]");
 		}
 
 		AnsiConsole.MarkupLineInterpolated($"You've selected the following tags: [blue]{string.Join(" ", topics)}[/]");
 
 		int length = AnsiConsole.Prompt(new TextPrompt<int>("How long would you like to do this activity (in minutes):")) * 60;
-		MainPanel.DrawTimerFrame(brewLog, new BrewEntry(entryName, DateTime.Now, length, brewLog.GetTopicsFromNames(topics)));
+		MainPanel.DrawTimerFrame(brewLog, new BrewEntry(entryName, DateTime.Now, addedTopics.ToArray(), length, 0));
 	}
 
-	public static Topic[] PromptAddTopics()
+	public static List<string> PromptAddTopics()
 	{
-
-		List<Topic> topics = new List<Topic>();
+		var topics = new List<string>();
 		string topicsPrompt =
 			AnsiConsole.Prompt(new TextPrompt<string>("Create new tags (Separate tags with a space):"));
 
 		foreach (string topic in topicsPrompt.Split(" "))
 		{
-			topics.Add(new Topic(topic));
+			topics.Add(topic);
 		}
 
-		return topics.ToArray();
+		return topics;
 	}
 
-	public static Topic[] PromptSelectTopics(BrewLog brewLog)
+	public static List<string> PromptSelectTopics(BrewLog brewLog)
 	{
 		var topicNames = AnsiConsole.Prompt(
 		new MultiSelectionPrompt<string>()
@@ -77,8 +77,8 @@ public static class Prompts
 			.InstructionsText(
 				"[grey](Press [blue]<space>[/] to toggle a fruit, " +
 				"[green]<enter>[/] to accept)[/]")
-			.AddChoices(brewLog.Topics.ToArray().Select(t => t.name)));
-		return brewLog.GetTopicsFromNames(topicNames);
+			.AddChoices(brewLog.Topics));
+		return topicNames;
 	}
 
 }

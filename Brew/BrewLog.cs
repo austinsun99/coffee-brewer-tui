@@ -3,8 +3,8 @@ namespace Brew;
 
 public class BrewLog
 {
-	private HashSet<Topic> topics;
-	public HashSet<Topic> Topics { get => topics; set => topics = value; }
+	private HashSet<string> topics;
+	public HashSet<string> Topics { get => topics; set => topics = value; }
 
 	private List<BrewEntry> entries;
 	public List<BrewEntry> Entries { get => entries; set => entries = value; }
@@ -15,47 +15,29 @@ public class BrewLog
 		get => entries.OrderBy(e => e.startTime).Reverse().ToList();
 	}
 
-	public int GetTimeForTopicsInMinutes(Topic[] topics) => GetTimeForTopicsInSeconds(topics) / 60;
-	private int GetTimeForTopicsInHours(Topic[] topics) => GetTimeForTopicsInSeconds(topics) / 3600;
-
 	public BrewLog()
 	{
 		entries = new List<BrewEntry>();
-		topics = new HashSet<Topic>();
+		topics = new HashSet<string>();
 	}
 
-	public int GetTimeForTopicsInSeconds(Topic[] topics)
+	public void AddEntry(BrewEntry entry)
 	{
-		int seconds = 0;
-		List<BrewEntry> entries = EntriesWithTopic(topics);
-		foreach (BrewEntry entry in entries)
+		entries.Add(entry);
+		foreach (string t in entry.topics)
 		{
-			Console.WriteLine(entry.name);
-			seconds += entry.lengthSeconds;
+			topics.Add(t);
 		}
-		return seconds;
 	}
 
-	public Topic[] GetTopicsFromNames(List<string> names)
+	public string GetEntriesWithTopicAndDateRangeFormatted(string[] topics, TimeInterval timeInterval)
 	{
-		List<Topic> topicsWithName = new List<Topic>();
-		foreach (Topic t in topics)
-		{
-			if (names.Contains(t.name))
-			{
-				topicsWithName.Add(t);
-			}
-		}
-		return topicsWithName.ToArray();
-	}
-
-	public string GetEntriesWithTopicAndDateRangeFormatted(Topic[] topics, TimeInterval timeInterval)
-	{
-		var entriesWithGivenTopicAndDateRange = GetEntriesWithTopicAndDateInterval(topics, timeInterval);
+		var entriesWithGivenTopicAndDateRange = GetEntriesWithTopicAndTimeInterval(entries, topics, timeInterval);
 		int totalSeconds = 0;
 		foreach (var entry in entriesWithGivenTopicAndDateRange)
 		{
-			totalSeconds += entry.lengthSeconds;
+			totalSeconds += entry.focusedTimeSeconds;
+			totalSeconds += entry.unfocusedTimeSeconds;
 		}
 
 		string totalSecondsFormatted;
@@ -69,7 +51,7 @@ public class BrewLog
 		bool topicIsEmpty = topics.Length == 0;
 		if (!topicIsEmpty)
 		{
-			string topicsDisplay = string.Join(" ", topics.Select(e => e.name));
+			string topicsDisplay = string.Join(" ", topics);
 			displayBuilder.Append($"on: [blue]{topicsDisplay}[/] ");
 		}
 
@@ -88,12 +70,22 @@ public class BrewLog
 
 	}
 
-	public List<BrewEntry> GetEntriesWithTopicAndDateInterval(Topic[] topics, TimeInterval timeInterval)
+	public List<BrewEntry> GetEntriesWithTopicAndTimeInterval(string[] topics, TimeInterval timeInterval) {
+		return GetEntriesWithTopicAndTimeInterval(entries, topics, timeInterval);
+	}
+
+	public List<BrewEntry> GetEntriesWithTopicAndTimeInterval
+		(List<BrewEntry> entries, string[] topics, TimeInterval timeInterval)
 	{
-		var entriesWithGivenTopic = EntriesWithTopic(topics);
+		var entriesWithTopic = GetEntriesWithTopic(entries, topics);
+		return GetEntriesWithTimeInterval(entriesWithTopic, timeInterval);
+	}
+
+	public List<BrewEntry> GetEntriesWithTimeInterval(List<BrewEntry> entries, TimeInterval timeInterval)
+	{
 		var entriesWithTopicAndWithinDate = new List<BrewEntry>();
 
-		foreach (BrewEntry entry in entriesWithGivenTopic)
+		foreach (BrewEntry entry in entries)
 		{
 			var cal = System.Globalization.DateTimeFormatInfo.CurrentInfo.Calendar;
 			var d1 = DateTime.Now.Date.AddDays(-1 * (int)cal.GetDayOfWeek(DateTime.Now));
@@ -117,25 +109,17 @@ public class BrewLog
 		return entriesWithTopicAndWithinDate.OrderBy(e => e.startTime).Reverse().ToList();
 	}
 
-	public void AddEntry(BrewEntry entry)
-	{
-		entries.Add(entry);
-		foreach (Topic t in entry.topics)
-		{
-			topics.Add(t);
-		}
-	}
-
-	public List<BrewEntry> EntriesWithTopic(Topic[] topics, bool includeNoTopics = true)
+	public List<BrewEntry> GetEntriesWithTopic(List<BrewEntry> entries, string[] topics, bool includeNoTopics = true)
 	{
 		List<BrewEntry> entriesWithTopic = new List<BrewEntry>();
 		foreach (BrewEntry brewEntry in entries)
 		{
 			bool brewEntryContainsTopic = false;
-			if (topics.Length == 0)
+
+			if (topics.Length == 0 && includeNoTopics)
 				brewEntryContainsTopic = true;
-			foreach (Topic t in brewEntry.topics)
-				if (topics.Contains(t))
+			foreach (string t in brewEntry.topics)
+				if (topics.Any(t.Equals))
 					brewEntryContainsTopic = true;
 
 			if (brewEntryContainsTopic) entriesWithTopic.Add(brewEntry);
@@ -154,59 +138,33 @@ public enum TimeInterval
 	All,
 }
 
-public struct Topic
-{
-
-	[JsonInclude] public string name;
-
-	public Topic(string _name)
-	{
-		name = _name;
-	}
-
-	public override bool Equals(object? obj)
-	{
-		if (obj == null || !(obj is Topic)) return false;
-
-		Topic topic = (Topic)obj;
-		return topic.name.Equals(this.name);
-	}
-	public override int GetHashCode()
-	{
-		return base.GetHashCode();
-	}
-
-}
-
 public struct BrewEntry
 {
 	[JsonInclude] public string name;
 	[JsonInclude] public DateTime startTime;
-	[JsonInclude] public int lengthSeconds;
-	[JsonInclude] public Topic[] topics;
+	[JsonInclude] public string[] topics;
 
-	public DateTime endTime { get => startTime.AddSeconds(lengthSeconds); }
+	[JsonInclude] public int unfocusedTimeSeconds;
+	[JsonInclude] public int focusedTimeSeconds;
+	[JsonIgnore] public int totalTimeSeconds { get => unfocusedTimeSeconds + focusedTimeSeconds; }
 
-	public BrewEntry(string _name, DateTime _startTime, int _lengthSeconds, Topic[] _topic)
+	public DateTime endTime { get => startTime.AddSeconds(totalTimeSeconds); }
+	public string FocusedTimeFormatted { get => GetLengthFormatted(unfocusedTimeSeconds); }
+	public string UnfocusedTimeFormatted { get => GetLengthFormatted(unfocusedTimeSeconds); }
+
+	public BrewEntry(string _name, DateTime _startTime, string[] _topic, int _unfocusedTimeSeconds, int _focusedTimeSeconds)
 	{
 		name = _name;
 		startTime = _startTime;
-		lengthSeconds = _lengthSeconds;
 		topics = _topic;
+		unfocusedTimeSeconds = _unfocusedTimeSeconds;
+		focusedTimeSeconds = _focusedTimeSeconds;
 	}
 
-	public string GetLengthFormatted()
+	private string GetLengthFormatted(int seconds)
 	{
-		int seconds = lengthSeconds;
 		int hours = seconds / 3600;
 		int minutes = (seconds % 3600) / 60;
 		return hours != 0 ? $"{hours} hours, {minutes} minutes" : $"{minutes} minutes";
 	}
-
-	public override string ToString()
-	{
-		string topicsAsString = String.Join(" ", topics.Select(t => t.name));
-		return $"Brew Entry: {name}; started at {startTime.ToString("h m")} for {lengthSeconds} seconds.";
-	}
-
 }
