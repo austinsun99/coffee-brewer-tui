@@ -70,7 +70,8 @@ public class BrewLog
 
 	}
 
-	public List<BrewEntry> GetEntriesWithTopicAndTimeInterval(string[] topics, TimeInterval timeInterval) {
+	public List<BrewEntry> GetEntriesWithTopicAndTimeInterval(string[] topics, TimeInterval timeInterval)
+	{
 		return GetEntriesWithTopicAndTimeInterval(entries, topics, timeInterval);
 	}
 
@@ -151,6 +152,7 @@ public struct BrewEntry
 	public DateTime endTime { get => startTime.AddSeconds(totalTimeSeconds); }
 	public string FocusedTimeFormatted { get => GetLengthFormatted(unfocusedTimeSeconds); }
 	public string UnfocusedTimeFormatted { get => GetLengthFormatted(unfocusedTimeSeconds); }
+	public string TotalTimeFormatted { get => GetLengthFormatted(totalTimeSeconds); }
 
 	public BrewEntry(string _name, DateTime _startTime, string[] _topic, int _unfocusedTimeSeconds, int _focusedTimeSeconds)
 	{
@@ -161,10 +163,18 @@ public struct BrewEntry
 		focusedTimeSeconds = _focusedTimeSeconds;
 	}
 
-	private string GetLengthFormatted(int seconds)
+	private string GetLengthFormatted(int totalSeconds)
 	{
-		int hours = seconds / 3600;
-		int minutes = (seconds % 3600) / 60;
-		return hours != 0 ? $"{hours} hours, {minutes} minutes" : $"{minutes} minutes";
+		int seconds = totalSeconds % 60;
+		int hours = totalSeconds / 3600;
+		int minutes = (totalSeconds % 3600) / 60;
+
+		string result = "";
+
+		if (minutes == 0) result = $"{seconds} seconds";
+		else if (hours == 0) result = $"{minutes} minutes, {seconds} seconds";
+		else result = $"{hours} hours, {minutes} minutes";
+
+		return result;
 	}
 }

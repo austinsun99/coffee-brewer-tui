@@ -38,18 +38,27 @@ public static class SidePanel
 	{
 
 		string topics = string.Join(" ", entry.topics.Select(t => $"[[{t}]]"));
-		string unfocusedTimeFormatted = entry.UnfocusedTimeFormatted;
+		string startTime = entry.startTime.ToString("MMMM dd, hh:m tt");
+		string totalTime = entry.TotalTimeFormatted;
 		string focusedTimeFormatted = entry.FocusedTimeFormatted;
 
-		topics += string.Join(" ", new string[Math.Max(0, entry.name.Length + 1 - topics.Length)]);
-		unfocusedTimeFormatted += string.Join(" ", new string[Math.Max(0, entry.name.Length + 1 - unfocusedTimeFormatted.Length)]);
-		focusedTimeFormatted += string.Join(" ", new string[Math.Max(0, entry.name.Length + 1 - focusedTimeFormatted.Length)]);
+		Func<string, string> Pad = (string s) =>
+		{
+			return string.Join(" ", new string[Math.Max(0, entry.name.Length + 1 - s.Length)]);
+		};
+
+		topics += Pad(topics);
+		startTime += Pad(startTime);
+		totalTime += Pad(totalTime);
+		focusedTimeFormatted += Pad(focusedTimeFormatted);
 
 		var panelInfo = new StringBuilder();
 		if (entry.topics.Length != 0) panelInfo.AppendLine($"[blue]{topics}[/]");
 
-		panelInfo.AppendLine(unfocusedTimeFormatted);
-		panelInfo.AppendLine(focusedTimeFormatted);
+		panelInfo.AppendLine($"{startTime}");
+		panelInfo.AppendLine($"Total: [green]{totalTime}[/]");
+
+		if (entry.focusedTimeSeconds != 0) panelInfo.AppendLine($"Focused for: [purple]{focusedTimeFormatted}[/]");
 
 		var panel = new Panel(panelInfo.ToString());
 		panel.Header = new PanelHeader(entry.name);
@@ -149,7 +158,7 @@ public static class MainPanel
 			object? sender,
 			ConsoleCancelEventArgs args) => Save(brewLog));
 
-		const int TIME_BETWEEN_REFRESH_MS = 1000;
+		int TIME_BETWEEN_REFRESH_MS = 1000;
 		Layout mainLayout = GenerateBaseMainLayout(brewLog);
 
 		Panel keybindingsInfo = GetKeybindingsInformationDisplayTimer();
@@ -228,20 +237,26 @@ public static class MainPanel
 				{
 					mainLayout["CoffeeImage"].Update(Align.Center(CoffeeImage.CoffeeASCII()));
 
-					string brewingText = "Brewing" + new string('.', brewDots);
-					mainLayout["BrewingText"].Update(Align.Center(
-								new FigletText(brewingText).Color(Color.RosyBrown)));
-					brewDots++;
-					if (brewDots >= 4) brewDots = 1;
+					if (focused) {
 
-					if (focused)
-					{
+						string brewingText = "Focused" + new string('.', brewDots);
+						mainLayout["BrewingText"].Update(Align.Center(
+									new FigletText(brewingText).Color(Color.Purple4)));
+
+						TIME_BETWEEN_REFRESH_MS = 250;
 						unfocusedTimeStopwatch.Stop();
 						focusedTimeStopwatch.Start();
 					}
-					else
-					{
 
+					if (!focused)
+					{
+						string brewingText = "Brewing" + new string('.', brewDots);
+						mainLayout["BrewingText"].Update(Align.Center(
+									new FigletText(brewingText).Color(Color.RosyBrown)));
+						brewDots++;
+						if (brewDots >= 4) brewDots = 1;
+
+						TIME_BETWEEN_REFRESH_MS = 1000;
 						unfocusedTimeStopwatch.Start();
 						focusedTimeStopwatch.Stop();
 					}
@@ -300,6 +315,7 @@ public static class MainPanel
 
 		AddKeybinding("i", "increment the timer by 10 seconds");
 		AddKeybinding("s", "you have finished the assignment early"); ;
+		AddKeybinding("p", "switch between focus and unfocused mode"); ;
 
 		var panel = new Panel(Align.Left(
 			new Markup(panelText.ToString()),
@@ -323,7 +339,7 @@ public static class MainPanel
 		AddKeybinding("e", "save and exit");
 		AddKeybinding("b", "filter by topic");
 		AddKeybinding("x", "delete selected entry");
-		AddKeybinding("f", "cycle between filtered time intervals"); ;
+		AddKeybinding("f", "cycle between filtered time intervals");
 
 		var panel = new Panel(Align.Left(
 			new Markup(panelText.ToString()),
