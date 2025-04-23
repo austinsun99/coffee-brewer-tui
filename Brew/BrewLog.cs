@@ -30,6 +30,26 @@ public class BrewLog
 		}
 	}
 
+	public string TimeToFormatted(int totalSeconds)
+	{
+		string totalSecondsFormatted;
+		if (totalSeconds < 60) totalSecondsFormatted = $"{totalSeconds} seconds";
+		else if (totalSeconds < 3600) totalSecondsFormatted = $"{totalSeconds / 60} minutes, {totalSeconds % 60} seconds";
+		else totalSecondsFormatted = $"{totalSeconds / 3600} hours, {(totalSeconds / 3600) % 60} minutes";
+		return totalSecondsFormatted;
+	}
+
+	public int GetTotalMinutesForTimeInterval(TimeInterval timeInterval, bool focusedTime)
+	{
+		List<BrewEntry> entries = GetEntriesWithTimeInterval(Entries, timeInterval);
+		int totalSeconds = 0;
+		foreach (var entry in entries)
+		{
+			totalSeconds += focusedTime ? entry.focusedTimeSeconds : entry.unfocusedTimeSeconds;
+		}
+		return totalSeconds / 60;
+	}
+
 	public string GetEntriesWithTopicAndDateRangeFormatted(string[] topics, TimeInterval timeInterval)
 	{
 		var entriesWithGivenTopicAndDateRange = GetEntriesWithTopicAndTimeInterval(entries, topics, timeInterval);
@@ -40,10 +60,7 @@ public class BrewLog
 			totalSeconds += entry.unfocusedTimeSeconds;
 		}
 
-		string totalSecondsFormatted;
-		if (totalSeconds < 60) totalSecondsFormatted = $"{totalSeconds} seconds";
-		else if (totalSeconds < 3600) totalSecondsFormatted = $"{totalSeconds / 60} minutes, {totalSeconds % 60} seconds";
-		else totalSecondsFormatted = $"{totalSeconds / 3600} hours, {(totalSeconds / 3600) % 60} minutes";
+		string totalSecondsFormatted = TimeToFormatted(totalSeconds);
 
 		var displayBuilder = new System.Text.StringBuilder();
 		displayBuilder.Append($"You have spent [green]{totalSecondsFormatted}[/] working ");

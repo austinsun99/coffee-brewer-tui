@@ -86,7 +86,12 @@ public static class MainPanel
 
 		Layout mainLayout = GenerateBaseMainLayout(brewLog);
 		mainLayout["Top"].Update(GetKeybindingsInformationDisplay());
-		mainLayout["Image"].Update(new FigletText("Coffee Brewer.").Centered().Color(Color.SandyBrown));
+
+		mainLayout["Image"].SplitRows(
+				new Layout().Update(new FigletText("Coffee Brewer.").Centered().Color(Color.SandyBrown)),
+				new Layout().Update(GetStatsPanel(brewLog))
+				);
+
 		AnsiConsole.Live(mainLayout).Start(ctx =>
 		{
 			int selectedIndex = 0;
@@ -237,7 +242,8 @@ public static class MainPanel
 				{
 					mainLayout["CoffeeImage"].Update(Align.Center(CoffeeImage.CoffeeASCII()));
 
-					if (focused) {
+					if (focused)
+					{
 
 						string brewingText = "Focused" + new string('.', brewDots);
 						mainLayout["BrewingText"].Update(Align.Center(
@@ -279,6 +285,32 @@ public static class MainPanel
 
 		brewLog.AddEntry(entryToDisplay);
 		DrawFrame(brewLog);
+	}
+
+	private static Layout GetStatsPanel(BrewLog brewLog)
+	{
+		Layout layout = new Layout("Stats");
+
+		var timeChartToday = new BarChart()
+			.Width(60)
+			.Label("[green bold underline]Minutes spent working today[/]")
+			.CenterLabel()
+			.AddItem("Focused", brewLog.GetTotalMinutesForTimeInterval(TimeInterval.Day, true), Color.Aqua)
+			.AddItem("Unfocused", brewLog.GetTotalMinutesForTimeInterval(TimeInterval.Day, false), Color.Yellow);
+
+		var timeChartWeek = new BarChart()
+			.Width(60)
+			.Label("[purple bold underline]Minutes spent working this week[/]")
+			.CenterLabel()
+			.AddItem("Focused", brewLog.GetTotalMinutesForTimeInterval(TimeInterval.Week, true), Color.Aqua)
+			.AddItem("Unfocused", brewLog.GetTotalMinutesForTimeInterval(TimeInterval.Week, false), Color.Yellow);
+
+		layout.SplitRows(
+				new Layout().Update(timeChartToday),
+				new Layout().Update(timeChartWeek)
+				);
+
+		return layout;
 	}
 
 	private static Panel GetCoffeeInformationPanel(BrewEntry entryToDisplay)
